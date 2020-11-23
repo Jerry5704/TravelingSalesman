@@ -6,8 +6,19 @@
 #include <algorithm>
 #include <stdlib.h>
 #include <time.h>
+#include <math.h>
 
 std::ifstream myFile;
+
+int generateRandomNumber (int from, int to) {
+    int randomNumber = rand() % (to - from) + from;
+    return randomNumber;
+}
+
+double generateRandomDoubleNumber (double from, double to) {
+    double randomNumber = (double)rand() / RAND_MAX;
+    return from + randomNumber * (from - to);
+}
 
 void writeAndPrintDataFile(int numberOfCities, std::vector<std::vector<int>>& matrix, std::vector<int>& perm) {
     if (!myFile.good())
@@ -36,6 +47,7 @@ void writeAndPrintDataFile(int numberOfCities, std::vector<std::vector<int>>& ma
 }
 
 void calculatePermutationResult(std::vector<std::vector<int>>& matrix, std::vector<int>& perm, int numberOfCities, int& result) {
+    result = 0;
     for (int i = 0; i < numberOfCities; i++) {
         result += matrix[perm[i]+1][perm[i+1]];
     }
@@ -52,9 +64,73 @@ void calculateBestResult(std::vector<std::vector<int>>& matrix, std::vector<int>
     } while(std::next_permutation(bestPerm.begin()+1, bestPerm.end()));
 }
 
-void printResults(int result, int bestBestResult) {
-    std::cout << std::endl << "Set Permutation Result: " << result;
-    std::cout << std::endl << "Best Result: " << bestBestResult << std::endl;
+void initializePerm(std::vector<int>& perm, int numberOfCities) {
+    for (int i = 0; i < numberOfCities; i++) {
+        perm[i] = i;
+    }
+}
+
+void checkIfEqual(int firstRandomNumber, int secondRandomNumber) {
+    if (firstRandomNumber == secondRandomNumber) {
+        while (firstRandomNumber == secondRandomNumber) {
+            secondRandomNumber = generateRandomNumber(1, 8);
+        }
+    }
+}
+
+void switchPlaces(int firstPosition, int secondPosition, std::vector<int>& perm) {
+    int tempPosition = perm[secondPosition];
+    perm[secondPosition] = perm[firstPosition];
+    perm[firstPosition] = tempPosition;
+}
+
+void calculateSAResult(int numberOfCities, std::vector<std::vector<int>> matrix, int& saResult) {
+    // variables initialization
+    std::vector <int> perm (numberOfCities);
+    initializePerm(perm, numberOfCities);
+    int initialResult; // x0
+    calculatePermutationResult(matrix, perm, numberOfCities, initialResult);
+    int currentResult = initialResult; // x
+    int bestResult = currentResult;
+    int newResult = currentResult;
+    double initialTemperature = 1000;
+    double currentTemperature = initialTemperature;
+    double finalTemperature = 0;
+    double delta;
+    double p;
+    double z;
+    double coolingRate = 0.03;
+    // Simulated Annealing
+    while (currentTemperature > finalTemperature) {
+        int firstRandomNumber;
+        firstRandomNumber = generateRandomNumber(1, numberOfCities);
+        int secondRandomNumber;
+        secondRandomNumber = generateRandomNumber(1, numberOfCities);
+        checkIfEqual(firstRandomNumber, secondRandomNumber);
+        switchPlaces(firstRandomNumber, secondRandomNumber, perm);
+        calculatePermutationResult(matrix, perm, numberOfCities, newResult);
+        if (bestResult > newResult)
+            bestResult = newResult;
+        if (newResult <= currentResult)
+            currentResult = newResult;
+        else {
+            delta = newResult - currentResult;
+            p = exp(-delta/currentTemperature);
+            z = -generateRandomDoubleNumber(0, 1);
+            if (z < p)
+                currentResult = newResult;
+            currentTemperature -= coolingRate;
+        }
+    }
+    saResult = bestResult;
+}
+
+
+void printResults(int result, int bestBestResult, int saResult) {
+    std::cout << std::endl;
+    std::cout << std::endl << "Set permutation result: " << result << std::endl;
+    std::cout << "Best result: " << bestBestResult << std::endl;
+    std::cout << "Simulated annealing result: " << saResult << std::endl;
 }
 
 int main() {
@@ -62,8 +138,10 @@ int main() {
     int numberOfCities = 0;
     int result = 0;
     unsigned int bestResult = 0;
-    unsigned int bestBestResult = 999999;
+    unsigned int bestBestResult = 50000;
+    int saResult = 0;
 
+    srand(time(NULL));
     myFile.open("data.txt");
     std::string s;
     myFile >> s;
@@ -79,5 +157,6 @@ int main() {
     myFile.close();
     calculatePermutationResult(matrix, perm, numberOfCities, result);
     calculateBestResult(matrix, bestPerm, numberOfCities, bestResult, bestBestResult);
-    printResults(result, bestBestResult);
+    calculateSAResult(numberOfCities, matrix, saResult);
+    printResults(result, bestBestResult, saResult);
 }
